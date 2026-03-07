@@ -1,0 +1,152 @@
+version: '3.9'
+
+networks:
+  ransomflow-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+volumes:
+  nfs-data:
+  n8n-data:
+  lmstudio-models:
+
+services:
+
+  # ─────────────────────────────────────────────
+  # FRONTEND — Angular + Tailwind
+  # ─────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ransomflow-frontend
+    ports:
+      - "80:80"
+    networks:
+      ransomflow-net:
+        ipv4_address: 172.20.0.10
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # BACKEND — NestJS (INTENTIONALLY VULNERABLE)
+  # HTB Vulns: code injection in /api/workflows/process
+  #            docker.sock mounted (breakout vector)
+  #            env leaks LLM_URL and STORAGE_SERVICE
+  # ─────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ransomflow-backend
+    ports:
+      - "3000:3000"
+    networks:
+      ransomflow-net:
+        ipv4_address: 172.20.0.20
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=sup3rs3cr3t_htb_2026
+      - LLM_URL=http://lm-proxy:4000
+      - STORAGE_SERVICE=http://nfs-storage:5000
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - N8N_URL=http://n8n:5678
+    volumes:
+      # HTB VULN: Docker socket exposed — allows container breakout
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - lm-proxy
+      - nfs-storage
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # LM STUDIO PROXY — Routes to local LLM
+  # Settings UI for model selection
+  # ─────────────────────────────────────────────
+  lm-proxy:
+    build:
+      context: ./lm-studio-proxy
+      dockerfile: Dockerfile
+    container_name: ransomflow-lm-proxy
+    ports:
+      - "4000:4000"
+    networks:
+      ransomflow-net:
+        ipv4_address: 172.20.0.30
+    environment:
+      # Point this to your LM Studio instance
+      - LM_STUDIO_URL=${LM_STUDIO_URL:-http://host.docker.internal:1234}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-qwen2.5-7b-instruct}
+      - PROXY_PORT=4000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # NFS STORAGE — Intentionally misconfigured
+  # HTB Vuln: exposed internally, no auth, sensitive data
+  # ─────────────────────────────────────────────
+  nfs-storage:
+    build:
+      context: ./nfs-storage
+      dockerfile: Dockerfile
+    container_name: ransomflow-nfs
+    ports:
+      - "5000:5000"  # Internal HTTP API (simulates NFS over HTTP)
+    networks:
+      ransomflow-net:
+        ipv4_address: 172.20.0.40
+    volumes:
+      - nfs-data:/data
+    environment:
+      # HTB VULN: credentials leaked via env (discoverable via SSRF)
+      - STORAGE_ADMIN_USER=storageadmin
+      - STORAGE_ADMIN_PASS=Fl0wSt0r@ge2026
+      - ALLOW_UNAUTHENTICATED=true
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # N8N — Automation platform with Telegram
+  # ─────────────────────────────────────────────
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: ransomflow-n8n
+    ports:
+      - "5678:5678"
+    networks:
+      ransomflow-net:
+        ipv4_address: 172.20.0.50
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=n8nAdmin2026!
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - WEBHOOK_URL=http://n8n:5678/
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - N8N_ENCRYPTION_KEY=ransomflow_enc_key_2026
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ./n8n-config:/home/node/.n8n/workflows
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  # NGINX REVERSE PROXY (production routing)
+  # ─────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: ransomflow-nginx
+    ports:
+      - "8080:8080"
+    networks:
+      ransomflow-net:
+        ipv4_address: 172.20.0.60
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
