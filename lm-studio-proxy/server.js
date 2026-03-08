@@ -20,7 +20,7 @@ const SUPPORTED_MODELS = [
 
 let settings = {
   lmStudioUrl:        process.env.LM_STUDIO_URL || 'http://localhost:11434',
-  activeModel:        process.env.DEFAULT_MODEL  || 'gemma3:4b',
+  activeModel:        process.env.DEFAULT_MODEL  || 'gemma3:1b',
   temperature:        0.7,
   maxTokens:          1000,
   systemPromptPrefix: 'You are the RansomFlow AI assistant.',
