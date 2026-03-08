@@ -80,7 +80,7 @@ services:
     environment:
       # Point this to your LM Studio instance
       - LM_STUDIO_URL=${LM_STUDIO_URL:-http://172.17.0.1:11434}
-      - DEFAULT_MODEL=${DEFAULT_MODEL:-gemma3:4b}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-gemma3:1b}
       - PROXY_PORT=4000
       - API_MODE=ollama
 
