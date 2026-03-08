@@ -112,7 +112,7 @@ import { ApiService } from '../../services/api.service';
   `,
 })
 export class SettingsComponent implements OnInit {
-  settings: any = { lmStudioUrl:'http://host.docker.internal:1234', activeModel:'qwen2.5-7b-instruct', temperature:0.7, maxTokens:1000, contextWindow:4096 };
+  settings: any = { lmStudioUrl:'http://172.17.0.1:11434', activeModel:'gemma3:1b', temperature:0.7, maxTokens:1000, contextWindow:4096 };
   models: any[] = [];
   lmConnected = false;
   saved = false;
@@ -152,7 +152,7 @@ export class SettingsComponent implements OnInit {
 
   defaultModels() {
     return [
-      { id:'qwen2.5-7b-instruct', name:'Qwen 2.5 7B', size:'4.7GB', speed:'fast', recommended:true },
+      { id:'gemma3:1b', name:'Gemma 3 1B (Ollama)', size:'800MB', speed:'fast', recommended:true },
       { id:'llama-3.1-8b-instruct', name:'LLaMA 3.1 8B', size:'4.9GB', speed:'medium', recommended:false },
       { id:'mistral-7b-instruct-v0.3', name:'Mistral 7B', size:'4.1GB', speed:'fast', recommended:false },
       { id:'phi-3.5-mini-instruct', name:'Phi 3.5 Mini', size:'2.2GB', speed:'fast', recommended:false },

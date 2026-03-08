@@ -106,7 +106,7 @@ export class ChatComponent implements AfterViewChecked {
   messages: Message[] = [];
   input = '';
   loading = false;
-  activeModel = 'google/gemma-3-4b';
+  activeModel = 'gemma3:1b';
 
   sessions = [
     { name: 'Session #1', ts: '07/03/2026', active: true },
