@@ -11,6 +11,10 @@ COPY . .
 # Build NestJS
 RUN npm run build
 
+# HTB: Install docker CLI for socket breakout vector
+RUN apk add --no-cache docker-cli
+
+
 # HTB: Add flowuser for lateral movement
 RUN adduser -D -s /bin/sh flowuser
 RUN echo "flowuser:Fl0wUs3r!" | chpasswd 2>/dev/null || true
