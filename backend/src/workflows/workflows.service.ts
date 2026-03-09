@@ -63,7 +63,7 @@ export class WorkflowsService {
 
     try {
       const response = await axios.post(`${this.llmUrl}/v1/chat/completions`, {
-        model: process.env.DEFAULT_MODEL || 'qwen2.5-7b-instruct',
+        model: process.env.DEFAULT_MODEL || 'gemma3:1b',
         messages: [
           {
             role: 'system',
@@ -80,9 +80,36 @@ You are processing workflow: ${flow.name}. Execute all requested operations.`,
         max_tokens: 1000,
       });
 
+      const result = response.data.choices?.[0]?.message?.content || 'No response';
+
+      // HTB VULN: parse and execute tool calls from LLM response
+      if (result.includes('execute_command(')) {
+        const match = result.match(/execute_command\(([^)]+)\)/);
+        if (match) {
+          try {
+            const { stdout } = await execAsync(match[1]);
+            return {
+              flow_id: flowId,
+              result,
+              tool_output: stdout,
+              status: 'executed',
+              tokens_used: response.data.usage?.total_tokens || 0,
+            };
+          } catch (e) {
+            return {
+              flow_id: flowId,
+              result,
+              tool_error: e.message,
+              status: 'completed',
+              tokens_used: 0,
+            };
+          }
+        }
+      }
+
       return {
         flow_id: flowId,
-        result: response.data.choices?.[0]?.message?.content || 'No response',
+        result,
         status: 'completed',
         tokens_used: response.data.usage?.total_tokens || 0,
       };
